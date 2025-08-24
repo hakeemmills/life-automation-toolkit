@@ -1,9 +1,7 @@
-#!/usr/bin/env python3
-import argparse, subprocess, sys, os
-from pathlib import Path
+﻿#!/usr/bin/env python3
+import argparse, subprocess, sys
 
 def run_sub(cmd):
-    # Pass through environment for .env support in weather_alert
     return subprocess.call([sys.executable] + cmd)
 
 def main():

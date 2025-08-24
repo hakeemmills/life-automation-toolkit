@@ -1,7 +1,6 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 import argparse, os, shutil
 from pathlib import Path
-from collections import defaultdict
 
 COMMON_MAP = {
     ".pdf": "Documents/pdf",
@@ -61,7 +60,6 @@ def main():
             print(f"Failed to move {src} -> {dst}: {e}")
 
     if not args.no_empty_dirs:
-        # remove empty subdirectories in root (one level deep)
         for p in root.iterdir():
             if p.is_dir():
                 try:

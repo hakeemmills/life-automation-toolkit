@@ -1,5 +1,5 @@
-#!/usr/bin/env python3
-import argparse, os, re
+﻿#!/usr/bin/env python3
+import argparse, re
 from pathlib import Path
 from datetime import datetime
 
