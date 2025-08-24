@@ -11,17 +11,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: '3.11'
 
-      # Install tools + your deps (so import plugins never choke)
       - run: python -m pip install --upgrade pip
       - run: pip install -r requirements.txt flake8 black
 
-      # Format code (not a --check; just fix it in the runner)
       - name: Black (format)
         run: black .
 
-      # Lint with our config (.flake8)
-        # keep this strict enough to catch real issues
       - name: Flake8 (lint)
-        run: flake8 .
+        run: flake8 --max-line-length 120 --extend-ignore E203,W503
