@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import argparse, os, sys, time
+import argparse, os
 from datetime import datetime, timedelta, timezone
 import requests
 from dotenv import load_dotenv

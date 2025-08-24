@@ -1,5 +1,5 @@
-﻿#!/usr/bin/env python3
-import argparse, os, shutil
+#!/usr/bin/env python3
+import argparse, shutil
 from pathlib import Path
 
 COMMON_MAP = {
