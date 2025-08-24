@@ -2,10 +2,12 @@
 import argparse
 import os
 from datetime import datetime, timezone
+import smtplib
+import ssl
 
 import requests
+from email.message import EmailMessage
 from dotenv import load_dotenv
-from twilio.rest import Client
 
 
 def geocode_city(api_key: str, city: str, country: str):
@@ -33,36 +35,49 @@ def onecall_hourly(api_key: str, lat: float, lon: float, units: str = "metric"):
     return r.json()
 
 
-def send_sms(body: str):
-    sid = os.getenv("TWILIO_ACCOUNT_SID")
-    token = os.getenv("TWILIO_AUTH_TOKEN")
-    from_ = os.getenv("TWILIO_FROM")
-    to = os.getenv("ALERT_TO")
-    if not all([sid, token, from_, to]):
-        raise SystemExit("Missing Twilio config in environment variables.")
-    client = Client(sid, token)
-    msg = client.messages.create(body=body, from_=from_, to=to)
-    return msg.sid
+def need(name: str) -> str:
+    v = os.getenv(name)
+    if not v:
+        raise SystemExit(f"Missing env var: {name}")
+    return v
+
+
+def send_email(subject: str, body: str):
+    host = need("SMTP_HOST")
+    port = int(os.getenv("SMTP_PORT", "587"))
+    user = need("SMTP_USER")
+    pwd = need("SMTP_PASS").replace(" ", "")  # Gmail app password often pasted with spaces
+    from_addr = os.getenv("EMAIL_FROM", user)
+    to_addr = need("EMAIL_TO")
+
+    msg = EmailMessage()
+    msg["From"] = from_addr
+    msg["To"] = to_addr
+    msg["Subject"] = subject
+    msg.set_content(body)
+
+    ctx = ssl.create_default_context()
+    with smtplib.SMTP(host, port, timeout=20) as s:
+        s.ehlo()
+        s.starttls(context=ctx)
+        s.ehlo()
+        s.login(user, pwd)
+        s.send_message(msg)
 
 
 def main():
-    load_dotenv()
+    load_dotenv(override=True)
+
     parser = argparse.ArgumentParser(
-        description="Send an SMS if rain is expected in the next 12 hours."
+        description="Email an alert if precipitation is expected in the next 12 hours."
     )
     parser.add_argument("--city", required=True)
     parser.add_argument("--country", required=True, help="Two-letter country code, e.g. US")
-    parser.add_argument(
-        "--units", choices=["metric", "imperial", "standard"], default="metric"
-    )
-    parser.add_argument(
-        "--threshold", type=float, default=0.2, help="Probability threshold (0-1)"
-    )
+    parser.add_argument("--units", choices=["metric", "imperial", "standard"], default="metric")
+    parser.add_argument("--threshold", type=float, default=0.2, help="Probability threshold (0-1)")
     args = parser.parse_args()
 
-    api_key = os.getenv("OWM_API_KEY")
-    if not api_key:
-        raise SystemExit("Set OWM_API_KEY in environment or .env file.")
+    api_key = need("OWM_API_KEY")
 
     lat, lon = geocode_city(api_key, args.city, args.country)
     data = onecall_hourly(api_key, lat, lon, args.units)
@@ -77,7 +92,7 @@ def main():
             alert_slots.append((dt, pop, weather_desc))
 
     if not alert_slots:
-        print("No precipitation above threshold in next 12 hours; SMS not sent.")
+        print("No precipitation above threshold in next 12 hours; email not sent.")
         return
 
     first = alert_slots[0]
@@ -85,14 +100,19 @@ def main():
     prob = int(first[1] * 100)
     desc = first[2]
 
+    prefix = os.getenv("EMAIL_SUBJECT_PREFIX", "")
+    subject = f"{prefix} Rain alert for {args.city}".strip()
     body = (
-        f"Weather alert: {prob}% chance of {desc} around "
-        f"{local.strftime('%I:%M %p')} in {args.city}. "
-        f"(Next 12h threshold {args.threshold})"
+        f"Weather alert for {args.city}, {args.country}\n\n"
+        f"- Chance: {prob}%\n"
+        f"- Condition: {desc}\n"
+        f"- Around: {local.strftime('%I:%M %p %Z')}\n"
+        f"- Threshold: {args.threshold}\n"
+        f"- Units: {args.units}\n"
     )
 
-    sid = send_sms(body)
-    print(f"SMS sent. SID: {sid}")
+    send_email(subject, body)
+    print("Email sent.")
 
 
 if __name__ == "__main__":
