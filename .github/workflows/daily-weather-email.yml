@@ -28,13 +28,13 @@ jobs:
       - name: Send weather report
         env:
           # Secrets you’ll add in the repo settings
-          OWM_API_KEY:           b492c4870ee8084c77acd85becb660d3
-          SMTP_HOST:             smtp.gmail.com
-          SMTP_PORT:             587
-          SMTP_USER:             mills.hakeem.sr@gmail.com
-          SMTP_PASS:             aefb gdgb ykja xsna
-          EMAIL_FROM:            mills.hakeem.sr@gmail.com
-          EMAIL_TO:              mills.t.hakeem@gmail.com
-          EMAIL_SUBJECT_PREFIX:  Weather Alert
+          OWM_API_KEY:           ${{ secrets.OWM_API_KEY }}
+          SMTP_HOST:             ${{ secrets.SMTP_HOST }}
+          SMTP_PORT:             ${{ secrets.SMTP_PORT }}
+          SMTP_USER:             ${{ secrets.SMTP_USER }}
+          SMTP_PASS:             ${{ secrets.SMTP_PASS }}
+          EMAIL_FROM:            ${{ secrets.EMAIL_FROM }}
+          EMAIL_TO:              ${{ secrets.EMAIL_TO }}
+          EMAIL_SUBJECT_PREFIX:  ${{ secrets.EMAIL_SUBJECT_PREFIX }}
         run: |
           python weather_alert.py --city "Moncks Corner" --country US --units imperial --threshold 0.2
