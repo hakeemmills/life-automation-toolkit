@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 import argparse
 import os
+import smtplib
+import ssl
+from email.message import EmailMessage
 from datetime import datetime, timezone
 
 import requests
 from dotenv import load_dotenv
-from twilio.rest import Client
 
 
 def geocode_city(api_key: str, city: str, country: str):
@@ -33,36 +35,58 @@ def onecall_hourly(api_key: str, lat: float, lon: float, units: str = "metric"):
     return r.json()
 
 
-def send_sms(body: str):
-    sid = os.getenv("TWILIO_ACCOUNT_SID")
-    token = os.getenv("TWILIO_AUTH_TOKEN")
-    from_ = os.getenv("TWILIO_FROM")
-    to = os.getenv("ALERT_TO")
-    if not all([sid, token, from_, to]):
-        raise SystemExit("Missing Twilio config in environment variables.")
-    client = Client(sid, token)
-    msg = client.messages.create(body=body, from_=from_, to=to)
-    return msg.sid
+def send_email(subject: str, body: str):
+    host = os.getenv("SMTP_HOST", "smtp.gmail.com")
+    port = int(os.getenv("SMTP_PORT", "587"))
+    user = os.getenv("SMTP_USER")
+    password = os.getenv("SMTP_PASS")
+    from_addr = os.getenv("EMAIL_FROM", user)
+    to_addr = os.getenv("EMAIL_TO")
+
+    missing = [k for k, v in {
+        "SMTP_HOST": host, "SMTP_PORT": port, "SMTP_USER": user,
+        "SMTP_PASS": password, "EMAIL_TO": to_addr
+    }.items() if not v]
+    if missing:
+        raise SystemExit(f"Missing email config: {', '.join(missing)} in .env")
+
+    msg = EmailMessage()
+    msg["From"] = from_addr or user
+    msg["To"] = to_addr
+    msg["Subject"] = subject
+    msg.set_content(body)
+
+    context = ssl.create_default_context()
+    if port == 465:
+        # SSL (implicit TLS)
+        with smtplib.SMTP_SSL(host, port, context=context) as s:
+            s.login(user, password)
+            s.send_message(msg)
+    else:
+        # STARTTLS
+        with smtplib.SMTP(host, port) as s:
+            s.ehlo()
+            s.starttls(context=context)
+            s.ehlo()
+            s.login(user, password)
+            s.send_message(msg)
 
 
 def main():
-    load_dotenv()
+    load_dotenv(override=True)
+
     parser = argparse.ArgumentParser(
-        description="Send an SMS if rain is expected in the next 12 hours."
+        description="Email an alert if rain is expected in the next 12 hours."
     )
     parser.add_argument("--city", required=True)
     parser.add_argument("--country", required=True, help="Two-letter country code, e.g. US")
-    parser.add_argument(
-        "--units", choices=["metric", "imperial", "standard"], default="metric"
-    )
-    parser.add_argument(
-        "--threshold", type=float, default=0.2, help="Probability threshold (0-1)"
-    )
+    parser.add_argument("--units", choices=["metric", "imperial", "standard"], default="metric")
+    parser.add_argument("--threshold", type=float, default=0.2, help="Probability threshold (0-1)")
     args = parser.parse_args()
 
     api_key = os.getenv("OWM_API_KEY")
     if not api_key:
-        raise SystemExit("Set OWM_API_KEY in environment or .env file.")
+        raise SystemExit("Set OWM_API_KEY in your .env file.")
 
     lat, lon = geocode_city(api_key, args.city, args.country)
     data = onecall_hourly(api_key, lat, lon, args.units)
@@ -71,28 +95,39 @@ def main():
     alert_slots = []
     for h in hours:
         dt = datetime.fromtimestamp(h["dt"], tz=timezone.utc)
-        pop = h.get("pop", 0.0)
-        weather_desc = h.get("weather", [{}])[0].get("description", "")
+        pop = h.get("pop", 0.0)  # probability of precipitation
+        weather_desc = h.get("weather", [{}])[0].get("description", "").capitalize()
         if pop >= args.threshold:
             alert_slots.append((dt, pop, weather_desc))
 
     if not alert_slots:
-        print("No precipitation above threshold in next 12 hours; SMS not sent.")
+        print("No precipitation above threshold in next 12 hours; email not sent.")
         return
 
     first = alert_slots[0]
-    local = first[0].astimezone()
-    prob = int(first[1] * 100)
+    local_time = first[0].astimezone()
+    prob_pct = int(first[1] * 100)
     desc = first[2]
 
-    body = (
-        f"Weather alert: {prob}% chance of {desc} around "
-        f"{local.strftime('%I:%M %p')} in {args.city}. "
-        f"(Next 12h threshold {args.threshold})"
-    )
+    subject_prefix = os.getenv("EMAIL_SUBJECT_PREFIX", "[Weather Alert]")
+    subject = f"{subject_prefix} {args.city}: {prob_pct}% chance of {desc}"
 
-    sid = send_sms(body)
-    print(f"SMS sent. SID: {sid}")
+    lines = [
+        f"Location: {args.city}, {args.country}",
+        f"Units: {args.units}",
+        f"Alert threshold: {args.threshold}",
+        "",
+        f"First precip window: ~{local_time.strftime('%I:%M %p %Z')} ({prob_pct}% chance of {desc})",
+        "",
+        "Next 12 hours (UTC):",
+    ]
+    for dt, pop, desc in alert_slots[:6]:
+        lines.append(f" - {dt.strftime('%Y-%m-%d %H:%M')}Z: {int(pop*100)}% {desc}")
+
+    body = "\n".join(lines)
+
+    send_email(subject, body)
+    print("Email sent.")
 
 
 if __name__ == "__main__":
