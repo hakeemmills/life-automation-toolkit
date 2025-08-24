@@ -46,18 +46,16 @@ def send_sms(body: str):
 
 
 def main():
-    load_dotenv()
+    # Ensure .env values take precedence if present
+    load_dotenv(override=True)
+
     parser = argparse.ArgumentParser(
         description="Send an SMS if rain is expected in the next 12 hours."
     )
     parser.add_argument("--city", required=True)
     parser.add_argument("--country", required=True, help="Two-letter country code, e.g. US")
-    parser.add_argument(
-        "--units", choices=["metric", "imperial", "standard"], default="metric"
-    )
-    parser.add_argument(
-        "--threshold", type=float, default=0.2, help="Probability threshold (0-1)"
-    )
+    parser.add_argument("--units", choices=["metric", "imperial", "standard"], default="metric")
+    parser.add_argument("--threshold", type=float, default=0.2, help="Probability threshold (0-1)")
     args = parser.parse_args()
 
     api_key = os.getenv("OWM_API_KEY")
@@ -84,7 +82,6 @@ def main():
     local = first[0].astimezone()
     prob = int(first[1] * 100)
     desc = first[2]
-
     body = (
         f"Weather alert: {prob}% chance of {desc} around "
         f"{local.strftime('%I:%M %p')} in {args.city}. "
