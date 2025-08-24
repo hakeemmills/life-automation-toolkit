@@ -1,99 +1,39 @@
-#!/usr/bin/env python3
-import argparse
-import os
-from datetime import datetime, timezone
-
-import requests
+# email_test.py
+import os, ssl, smtplib
+from email.message import EmailMessage
 from dotenv import load_dotenv
-from twilio.rest import Client
 
+load_dotenv(override=True)
 
-def geocode_city(api_key: str, city: str, country: str):
-    url = "https://api.openweathermap.org/geo/1.0/direct"
-    params = {"q": f"{city},{country}", "limit": 1, "appid": api_key}
-    r = requests.get(url, params=params, timeout=20)
-    r.raise_for_status()
-    data = r.json()
-    if not data:
-        raise SystemExit(f"Location not found for {city}, {country}")
-    return data[0]["lat"], data[0]["lon"]
+HOST = os.getenv("SMTP_HOST")
+PORT = int(os.getenv("SMTP_PORT", "587"))
+USER = os.getenv("SMTP_USER")
+PWD  = os.getenv("SMTP_PASS")
+FROM = os.getenv("EMAIL_FROM", USER)
+TO   = os.getenv("EMAIL_TO", USER)
+SUBJ = os.getenv("EMAIL_SUBJECT_PREFIX", "[Weather Alert]") + " SMTP test"
 
+msg = EmailMessage()
+msg["From"] = FROM
+msg["To"] = TO
+msg["Subject"] = SUBJ
+msg.set_content("Hello from Life Automation Toolkit! This is a connectivity/auth test.")
 
-def onecall_hourly(api_key: str, lat: float, lon: float, units: str = "metric"):
-    url = "https://api.openweathermap.org/data/3.0/onecall"
-    params = {
-        "lat": lat,
-        "lon": lon,
-        "exclude": "minutely,daily,alerts",
-        "appid": api_key,
-        "units": units,
-    }
-    r = requests.get(url, params=params, timeout=20)
-    r.raise_for_status()
-    return r.json()
+context = ssl.create_default_context()
 
+print(f"Connecting to {HOST}:{PORT} ...")
+if PORT == 465:
+    with smtplib.SMTP_SSL(HOST, PORT, context=context, timeout=20) as s:
+        s.set_debuglevel(1)
+        s.login(USER, PWD)
+        s.send_message(msg)
+else:
+    with smtplib.SMTP(HOST, PORT, timeout=20) as s:
+        s.set_debuglevel(1)
+        s.ehlo()
+        s.starttls(context=context)
+        s.ehlo()
+        s.login(USER, PWD)
+        s.send_message(msg)
 
-def send_sms(body: str):
-    sid = os.getenv("TWILIO_ACCOUNT_SID")
-    token = os.getenv("TWILIO_AUTH_TOKEN")
-    from_ = os.getenv("TWILIO_FROM")
-    to = os.getenv("ALERT_TO")
-    if not all([sid, token, from_, to]):
-        raise SystemExit("Missing Twilio config in environment variables.")
-    client = Client(sid, token)
-    msg = client.messages.create(body=body, from_=from_, to=to)
-    return msg.sid
-
-
-def main():
-    load_dotenv()
-    parser = argparse.ArgumentParser(
-        description="Send an SMS if rain is expected in the next 12 hours."
-    )
-    parser.add_argument("--city", required=True)
-    parser.add_argument("--country", required=True, help="Two-letter country code, e.g. US")
-    parser.add_argument(
-        "--units", choices=["metric", "imperial", "standard"], default="metric"
-    )
-    parser.add_argument(
-        "--threshold", type=float, default=0.2, help="Probability threshold (0-1)"
-    )
-    args = parser.parse_args()
-
-    api_key = os.getenv("OWM_API_KEY")
-    if not api_key:
-        raise SystemExit("Set OWM_API_KEY in environment or .env file.")
-
-    lat, lon = geocode_city(api_key, args.city, args.country)
-    data = onecall_hourly(api_key, lat, lon, args.units)
-
-    hours = data.get("hourly", [])[:12]
-    alert_slots = []
-    for h in hours:
-        dt = datetime.fromtimestamp(h["dt"], tz=timezone.utc)
-        pop = h.get("pop", 0.0)
-        weather_desc = h.get("weather", [{}])[0].get("description", "")
-        if pop >= args.threshold:
-            alert_slots.append((dt, pop, weather_desc))
-
-    if not alert_slots:
-        print("No precipitation above threshold in next 12 hours; SMS not sent.")
-        return
-
-    first = alert_slots[0]
-    local = first[0].astimezone()
-    prob = int(first[1] * 100)
-    desc = first[2]
-
-    body = (
-        f"Weather alert: {prob}% chance of {desc} around "
-        f"{local.strftime('%I:%M %p')} in {args.city}. "
-        f"(Next 12h threshold {args.threshold})"
-    )
-
-    sid = send_sms(body)
-    print(f"SMS sent. SID: {sid}")
-
-
-if __name__ == "__main__":
-    main()
+print("Sent!")
