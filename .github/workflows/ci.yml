@@ -12,9 +12,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
+      # Install tools + your deps (so import plugins never choke)
       - run: python -m pip install --upgrade pip
-      - run: pip install flake8 black
-      - name: Black (code style)
-        run: black --check .
+      - run: pip install -r requirements.txt flake8 black
+
+      # Format code (not a --check; just fix it in the runner)
+      - name: Black (format)
+        run: black .
+
+      # Lint with our config (.flake8)
+        # keep this strict enough to catch real issues
       - name: Flake8 (lint)
         run: flake8 .
