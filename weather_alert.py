@@ -72,7 +72,10 @@ def main():
     local = first[0].astimezone()
     prob = int(first[1] * 100)
     desc = first[2]
-    body = f"Weather alert: {prob}% chance of {desc} around {local.strftime('%I:%M %p')} in {args.city}. (Next 12h threshold {args.threshold})"
+    body = (
+    f"Weather alert: {prob}% chance of {desc} around "
+    f"{local.strftime('%I:%M %p')} in {args.city}. "
+    f"(Next 12h threshold {args.threshold})"
     sid = send_sms(body)
     print(f"SMS sent. SID: {sid}")
 
