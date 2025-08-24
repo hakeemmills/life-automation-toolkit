@@ -1,0 +1,22 @@
+﻿# virtual envs
+.venv/
+venv/
+ENV/
+
+# python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pytest_cache/
+
+# editors
+.vscode/
+.idea/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# env files
+.env
