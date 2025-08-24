@@ -42,9 +42,13 @@ def main():
         description="Sort files in a folder by extension into categorized subfolders."
     )
     parser.add_argument("--path", required=True, help="Folder to organize")
-    parser.add_argument("--dry-run", action="store_true", help="Only show what would be moved")
     parser.add_argument(
-        "--no-empty-dirs", action="store_true", help="Leave empty dirs (default removes them)"
+        "--dry-run", action="store_true", help="Only show what would be moved"
+    )
+    parser.add_argument(
+        "--no-empty-dirs",
+        action="store_true",
+        help="Leave empty dirs (default removes them)",
     )
     args = parser.parse_args()
 

@@ -29,12 +29,18 @@ def unique_path(path: Path) -> Path:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Normalize and clean filenames in a folder.")
+    parser = argparse.ArgumentParser(
+        description="Normalize and clean filenames in a folder."
+    )
     parser.add_argument("--path", required=True, help="Folder to process")
     parser.add_argument(
-        "--date-prefix", action="store_true", help="Prefix filenames with today's date YYYYMMDD-"
+        "--date-prefix",
+        action="store_true",
+        help="Prefix filenames with today's date YYYYMMDD-",
     )
-    parser.add_argument("--dry-run", action="store_true", help="Only display planned changes")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Only display planned changes"
+    )
     args = parser.parse_args()
 
     root = Path(args.path).expanduser().resolve()

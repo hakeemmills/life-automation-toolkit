@@ -15,7 +15,9 @@ def main():
     w = sub.add_parser("weather", help="Send rain alert if threshold exceeded")
     w.add_argument("--city", required=True)
     w.add_argument("--country", required=True)
-    w.add_argument("--units", choices=["metric", "imperial", "standard"], default="metric")
+    w.add_argument(
+        "--units", choices=["metric", "imperial", "standard"], default="metric"
+    )
     w.add_argument("--threshold", type=float, default=0.2)
 
     s = sub.add_parser("sort", help="Sort files by extension")

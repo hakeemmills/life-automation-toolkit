@@ -51,7 +51,9 @@ def main():
         description="Send an SMS if rain is expected in the next 12 hours."
     )
     parser.add_argument("--city", required=True)
-    parser.add_argument("--country", required=True, help="Two-letter country code, e.g. US")
+    parser.add_argument(
+        "--country", required=True, help="Two-letter country code, e.g. US"
+    )
     parser.add_argument(
         "--units", choices=["metric", "imperial", "standard"], default="metric"
     )
