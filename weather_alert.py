@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 import argparse
 import os
 from datetime import datetime, timezone
@@ -21,7 +21,13 @@ def geocode_city(api_key: str, city: str, country: str):
 
 def onecall_hourly(api_key: str, lat: float, lon: float, units: str = "metric"):
     url = "https://api.openweathermap.org/data/3.0/onecall"
-    params = {"lat": lat, "lon": lon, "exclude": "minutely,daily,alerts", "appid": api_key, "units": units}
+    params = {
+        "lat": lat,
+        "lon": lon,
+        "exclude": "minutely,daily,alerts",
+        "appid": api_key,
+        "units": units,
+    }
     r = requests.get(url, params=params, timeout=20)
     r.raise_for_status()
     return r.json()
@@ -41,11 +47,17 @@ def send_sms(body: str):
 
 def main():
     load_dotenv()
-    parser = argparse.ArgumentParser(description="Send an SMS if rain is expected in the next 12 hours.")
+    parser = argparse.ArgumentParser(
+        description="Send an SMS if rain is expected in the next 12 hours."
+    )
     parser.add_argument("--city", required=True)
     parser.add_argument("--country", required=True, help="Two-letter country code, e.g. US")
-    parser.add_argument("--units", choices=["metric", "imperial", "standard"], default="metric")
-    parser.add_argument("--threshold", type=float, default=0.2, help="Probability threshold for precipitation (0-1)")
+    parser.add_argument(
+        "--units", choices=["metric", "imperial", "standard"], default="metric"
+    )
+    parser.add_argument(
+        "--threshold", type=float, default=0.2, help="Probability threshold (0-1)"
+    )
     args = parser.parse_args()
 
     api_key = os.getenv("OWM_API_KEY")
@@ -72,10 +84,13 @@ def main():
     local = first[0].astimezone()
     prob = int(first[1] * 100)
     desc = first[2]
+
     body = (
-    f"Weather alert: {prob}% chance of {desc} around "
-    f"{local.strftime('%I:%M %p')} in {args.city}. "
-    f"(Next 12h threshold {args.threshold})"
+        f"Weather alert: {prob}% chance of {desc} around "
+        f"{local.strftime('%I:%M %p')} in {args.city}. "
+        f"(Next 12h threshold {args.threshold})"
+    )
+
     sid = send_sms(body)
     print(f"SMS sent. SID: {sid}")
 
