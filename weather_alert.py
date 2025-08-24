@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+"""
+Send yourself an SMS if precipitation probability (POP) exceeds a threshold
+in the next ~12 hours using OpenWeatherMap + Twilio.
+"""
+
 import argparse
 import os
 from datetime import datetime, timezone
@@ -9,6 +14,7 @@ from twilio.rest import Client
 
 
 def geocode_city(api_key: str, city: str, country: str):
+    """Turn a city + country code into lat/lon using OWM Geocoding API."""
     url = "https://api.openweathermap.org/geo/1.0/direct"
     params = {"q": f"{city},{country}", "limit": 1, "appid": api_key}
     r = requests.get(url, params=params, timeout=20)
@@ -20,6 +26,7 @@ def geocode_city(api_key: str, city: str, country: str):
 
 
 def onecall_hourly(api_key: str, lat: float, lon: float, units: str = "metric"):
+    """Fetch hourly forecast (OWM One Call 3.0)."""
     url = "https://api.openweathermap.org/data/3.0/onecall"
     params = {
         "lat": lat,
@@ -34,6 +41,7 @@ def onecall_hourly(api_key: str, lat: float, lon: float, units: str = "metric"):
 
 
 def send_sms(body: str):
+    """Send an SMS using Twilio credentials from the environment."""
     sid = os.getenv("TWILIO_ACCOUNT_SID")
     token = os.getenv("TWILIO_AUTH_TOKEN")
     from_ = os.getenv("TWILIO_FROM")
@@ -46,24 +54,23 @@ def send_sms(body: str):
 
 
 def main():
-    load_dotenv()
+    # IMPORTANT: ensure .env values override any existing environment values
+    load_dotenv(override=True)
+
     parser = argparse.ArgumentParser(
         description="Send an SMS if rain is expected in the next 12 hours."
     )
     parser.add_argument("--city", required=True)
     parser.add_argument("--country", required=True, help="Two-letter country code, e.g. US")
-    parser.add_argument(
-        "--units", choices=["metric", "imperial", "standard"], default="metric"
-    )
-    parser.add_argument(
-        "--threshold", type=float, default=0.2, help="Probability threshold (0-1)"
-    )
+    parser.add_argument("--units", choices=["metric", "imperial", "standard"], default="metric")
+    parser.add_argument("--threshold", type=float, default=0.2, help="Probability threshold (0-1)")
     args = parser.parse_args()
 
     api_key = os.getenv("OWM_API_KEY")
     if not api_key:
-        raise SystemExit("Set OWM_API_KEY in environment or .env file.")
+        raise SystemExit("Set OWM_API_KEY in your .env file or environment.")
 
+    # Look up coordinates then fetch hourly forecast
     lat, lon = geocode_city(api_key, args.city, args.country)
     data = onecall_hourly(api_key, lat, lon, args.units)
 
@@ -71,7 +78,7 @@ def main():
     alert_slots = []
     for h in hours:
         dt = datetime.fromtimestamp(h["dt"], tz=timezone.utc)
-        pop = h.get("pop", 0.0)
+        pop = h.get("pop", 0.0)  # precipitation probability (0..1)
         weather_desc = h.get("weather", [{}])[0].get("description", "")
         if pop >= args.threshold:
             alert_slots.append((dt, pop, weather_desc))
@@ -81,13 +88,13 @@ def main():
         return
 
     first = alert_slots[0]
-    local = first[0].astimezone()
-    prob = int(first[1] * 100)
+    local_time = first[0].astimezone()
+    prob_pct = int(first[1] * 100)
     desc = first[2]
 
     body = (
-        f"Weather alert: {prob}% chance of {desc} around "
-        f"{local.strftime('%I:%M %p')} in {args.city}. "
+        f"Weather alert: {prob_pct}% chance of {desc} around "
+        f"{local_time.strftime('%I:%M %p')} in {args.city}. "
         f"(Next 12h threshold {args.threshold})"
     )
 
