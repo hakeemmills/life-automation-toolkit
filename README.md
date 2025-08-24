@@ -82,3 +82,6 @@ python cli.py rename --path "/Photos" --date-prefix
 ## License
 
 MIT
+
+<!-- trigger CI -->
+
