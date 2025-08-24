@@ -1,5 +1,6 @@
-#!/usr/bin/env python3
-import argparse, shutil
+﻿#!/usr/bin/env python3
+import argparse
+import shutil
 from pathlib import Path
 
 COMMON_MAP = {
@@ -24,6 +25,7 @@ COMMON_MAP = {
     ".md": "Documents/md",
 }
 
+
 def plan_moves(root: Path, custom_map=None):
     mapping = {**COMMON_MAP, **(custom_map or {})}
     moves = []
@@ -34,11 +36,16 @@ def plan_moves(root: Path, custom_map=None):
             moves.append((p, root / target_folder / p.name))
     return moves
 
+
 def main():
-    parser = argparse.ArgumentParser(description="Sort files in a folder by extension into categorized subfolders.")
+    parser = argparse.ArgumentParser(
+        description="Sort files in a folder by extension into categorized subfolders."
+    )
     parser.add_argument("--path", required=True, help="Folder to organize")
     parser.add_argument("--dry-run", action="store_true", help="Only show what would be moved")
-    parser.add_argument("--no-empty-dirs", action="store_true", help="Leave empty dirs (default removes them)")
+    parser.add_argument(
+        "--no-empty-dirs", action="store_true", help="Leave empty dirs (default removes them)"
+    )
     args = parser.parse_args()
 
     root = Path(args.path).expanduser().resolve()
@@ -70,6 +77,7 @@ def main():
                         print(f"Removed empty dir: {p}")
                     except Exception:
                         pass
+
 
 if __name__ == "__main__":
     main()

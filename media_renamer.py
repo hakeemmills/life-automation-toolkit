@@ -1,9 +1,11 @@
 ﻿#!/usr/bin/env python3
-import argparse, re
-from pathlib import Path
+import argparse
+import re
 from datetime import datetime
+from pathlib import Path
 
 SAFE = re.compile(r"[^a-z0-9\-_.]+")
+
 
 def slugify(name: str) -> str:
     name = name.lower().strip()
@@ -12,6 +14,7 @@ def slugify(name: str) -> str:
     name = SAFE.sub("-", name)
     name = re.sub(r"-{2,}", "-", name).strip("-")
     return name
+
 
 def unique_path(path: Path) -> Path:
     if not path.exists():
@@ -24,10 +27,13 @@ def unique_path(path: Path) -> Path:
             return candidate
         i += 1
 
+
 def main():
     parser = argparse.ArgumentParser(description="Normalize and clean filenames in a folder.")
     parser.add_argument("--path", required=True, help="Folder to process")
-    parser.add_argument("--date-prefix", action="store_true", help="Prefix filenames with today's date YYYYMMDD-")
+    parser.add_argument(
+        "--date-prefix", action="store_true", help="Prefix filenames with today's date YYYYMMDD-"
+    )
     parser.add_argument("--dry-run", action="store_true", help="Only display planned changes")
     args = parser.parse_args()
 
@@ -51,6 +57,7 @@ def main():
         else:
             src.rename(dst)
             print(f"Renamed: {src.name} -> {dst.name}")
+
 
 if __name__ == "__main__":
     main()
